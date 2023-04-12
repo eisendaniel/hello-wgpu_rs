@@ -1,4 +1,4 @@
-use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, SquareMatrix, Vector3};
+use cgmath::{prelude::*, Deg, Matrix4, Point3, Vector3};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = 
@@ -36,7 +36,7 @@ impl Default for Camera {
 impl Camera {
     fn build_view_projection_matrix(&self) -> Matrix4<f32> {
         let view = Matrix4::look_at_rh(self.eye, self.target, self.up);
-        let proj = perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
+        let proj = cgmath::perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
         OPENGL_TO_WGPU_MATRIX * proj * view
     }
 }
@@ -60,10 +60,12 @@ impl CameraUniform {
 
 pub struct CameraController {
     speed: f32,
-    is_forward_pressed: bool,
-    is_backward_pressed: bool,
-    is_left_pressed: bool,
-    is_right_pressed: bool,
+    zoom_in: bool,
+    zoom_out: bool,
+    up_pressed: bool,
+    down_pressed: bool,
+    left_pressed: bool,
+    right_pressed: bool,
 }
 
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -71,10 +73,12 @@ impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
-            is_forward_pressed: false,
-            is_backward_pressed: false,
-            is_left_pressed: false,
-            is_right_pressed: false,
+            zoom_in: false,
+            zoom_out: false,
+            up_pressed: false,
+            down_pressed: false,
+            left_pressed: false,
+            right_pressed: false,
         }
     }
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
@@ -90,20 +94,28 @@ impl CameraController {
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
+                    VirtualKeyCode::Up => {
+                        self.zoom_in = is_pressed;
                         true
                     }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
+                    VirtualKeyCode::Down => {
+                        self.zoom_out = is_pressed;
                         true
                     }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
+                    VirtualKeyCode::W => {
+                        self.up_pressed = is_pressed;
                         true
                     }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
+                    VirtualKeyCode::S => {
+                        self.down_pressed = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::A => {
+                        self.left_pressed = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::D => {
+                        self.right_pressed = is_pressed;
                         true
                     }
                     _ => false,
@@ -117,10 +129,10 @@ impl CameraController {
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
 
-        if self.is_forward_pressed && forward_mag > self.speed {
+        if self.zoom_in && forward_mag > self.speed {
             camera.eye += forward_norm * self.speed;
         }
-        if self.is_backward_pressed {
+        if self.zoom_out {
             camera.eye -= forward_norm * self.speed;
         }
         let right = forward_norm.cross(camera.up);
@@ -128,11 +140,20 @@ impl CameraController {
         let forward = camera.target - camera.eye;
         let forward_mag = forward.magnitude();
 
-        if self.is_right_pressed {
+        if self.left_pressed {
             camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
         }
-        if self.is_left_pressed {
+        if self.right_pressed {
             camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+        }
+
+        if self.up_pressed {
+            camera.eye =
+                camera.target - (forward - camera.up * self.speed).normalize() * forward_mag;
+        }
+        if self.down_pressed {
+            camera.eye =
+                camera.target - (forward + camera.up * self.speed).normalize() * forward_mag;
         }
     }
 }

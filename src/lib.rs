@@ -1,18 +1,26 @@
 mod camera;
+mod mesh;
 mod texture;
-mod vertex;
 
+use cgmath::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 use camera::{Camera, CameraController, CameraUniform};
-use vertex::*;
+use mesh::*;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
+const NUM_INSTANCES_PER_ROW: u32 = 10;
+const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+    0.0,
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+);
 
 struct State {
     surface: wgpu::Surface,
@@ -21,16 +29,18 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     window: Window,
+    render_pipeline: wgpu::RenderPipeline,
+    diffuse_bind_group: wgpu::BindGroup,
+    _diffuse_texture: texture::Texture,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    instances: Vec<Instance>,
+    instance_buffer: wgpu::Buffer,
     camera: camera::Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    diffuse_bind_group: wgpu::BindGroup,
-    diffuse_texture: texture::Texture,
 }
 
 impl State {
@@ -98,7 +108,7 @@ impl State {
         surface.configure(&device, &config);
 
         let diffuse_bytes = include_bytes!("happy-tree.png");
-        let diffuse_texture =
+        let _diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout =
@@ -130,11 +140,11 @@ impl State {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&_diffuse_texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&_diffuse_texture.sampler),
                 },
             ],
         });
@@ -143,7 +153,7 @@ impl State {
             aspect: config.width as f32 / config.height as f32,
             ..Default::default()
         };
-        let camera_controller = CameraController::new(0.02);
+        let camera_controller = CameraController::new(0.1);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
@@ -190,7 +200,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), InstanceRaw::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -231,6 +241,36 @@ impl State {
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let position = cgmath::Vector3 {
+                        x: x as f32,
+                        y: 0.0,
+                        z: z as f32,
+                    } - INSTANCE_DISPLACEMENT;
+
+                    let rotation = if position.is_zero() {
+                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
+                        // as Quaternions can effect scale if they're not created correctly
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+                    Instance { position, rotation }
+                })
+            })
+            .collect::<Vec<_>>();
+        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         Self {
             surface,
             device,
@@ -242,12 +282,14 @@ impl State {
             vertex_buffer,
             index_buffer,
             diffuse_bind_group,
-            diffuse_texture,
+            _diffuse_texture,
             camera,
             camera_uniform,
             camera_buffer,
             camera_bind_group,
             camera_controller,
+            instances,
+            instance_buffer,
         }
     }
 
@@ -319,9 +361,10 @@ impl State {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
+            render_pass.draw_indexed(0..(INDICES.len() as _), 0, 0..self.instances.len() as _);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
