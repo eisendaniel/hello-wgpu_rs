@@ -1,4 +1,4 @@
-# 🦀 hello-wgpu_rs  
+# 🦀 [hello-wgpu_rs](https://github.com/eisendaniel/hello-wgpu_rs)  
 
 <img src="https://avatars.githubusercontent.com/u/7904656?v%3D4" alt="github/sotrh" height="32" style="vertical-align:middle"> [Learn WGPU](https://sotrh.github.io/learn-wgpu/)
 
