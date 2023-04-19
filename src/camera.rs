@@ -22,7 +22,7 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            eye: (4.0, 4.0, 4.0).into(),
+            eye: (8.0, 8.0, 8.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vector3::unit_y(),
             aspect: 1.0,
