@@ -149,8 +149,8 @@ impl State {
                 .await
                 .unwrap();
 
-        const SPACE_BETWEEN: f32 = 3.0;
-        const NUM_INSTANCES_PER_ROW: u32 = 10;
+        const SPACE_BETWEEN: f32 = 4.0;
+        const NUM_INSTANCES_PER_ROW: u32 = 9;
 
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
@@ -203,7 +203,7 @@ impl State {
                 label: Some("camera_bind_group_layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,

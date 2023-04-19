@@ -18,7 +18,7 @@
 - [x] [Model Loading](https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/)
 
 ## Intermediate
-- [ ] [Working with Lights](https://sotrh.github.io/learn-wgpu/intermediate/tutorial10-lighting/)
+- [x] [Working with Lights](https://sotrh.github.io/learn-wgpu/intermediate/tutorial10-lighting/)
 - [ ] [Normal Mapping](https://sotrh.github.io/learn-wgpu/intermediate/tutorial11-normals/)
 - [ ] [A Better Camera](https://sotrh.github.io/learn-wgpu/intermediate/tutorial12-camera/)
 
