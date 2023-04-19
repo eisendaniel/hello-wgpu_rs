@@ -15,7 +15,7 @@
 - [x] [Uniform buffers and a 3d camera](https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/)
 - [x] [Instancing](https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/)
 - [x] [The Depth Buffer](https://sotrh.github.io/learn-wgpu/beginner/tutorial8-depth/)
-- [ ] [Model Loading](https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/)
+- [x] [Model Loading](https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/)
 
 ## Intermediate
 - [ ] [Working with Lights](https://sotrh.github.io/learn-wgpu/intermediate/tutorial10-lighting/)
