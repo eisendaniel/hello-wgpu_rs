@@ -24,7 +24,7 @@ struct LightUniform {
     position: [f32; 3], //3
     _pad0: u32,         //1
     color: [f32; 3],    //3
-    _pad1: u32,         //1
+    strength: f32,      //1
 }
 
 struct State {
@@ -108,7 +108,7 @@ impl State {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![],
         };
@@ -116,10 +116,6 @@ impl State {
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-
-        let diffuse_bytes = include_bytes!("happy-tree.png");
-        let _diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -141,6 +137,22 @@ impl State {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             });
 
@@ -149,14 +161,14 @@ impl State {
                 .await
                 .unwrap();
 
-        const SPACE_BETWEEN: f32 = 4.0;
-        const NUM_INSTANCES_PER_ROW: u32 = 9;
+        const _SPACE_BETWEEN: f32 = 4.0;
+        const _NUM_INSTANCES_PER_ROW: u32 = 5;
 
-        let instances = (0..NUM_INSTANCES_PER_ROW)
+        let instances = (0.._NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                (0.._NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let x = _SPACE_BETWEEN * (x as f32 - _NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = _SPACE_BETWEEN * (z as f32 - _NUM_INSTANCES_PER_ROW as f32 / 2.0);
 
                     let position = cgmath::Vector3 {
                         x: x as f32,
@@ -178,6 +190,10 @@ impl State {
                 })
             })
             .collect::<Vec<_>>();
+        // let instances = vec![Instance {
+        //     position: (0., 0., 0.).into(),
+        //     rotation: cgmath::Quaternion::zero(),
+        // }];
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -222,10 +238,10 @@ impl State {
         });
 
         let light_uniform = LightUniform {
-            position: [2., 2., 2.],
+            position: [4., 4., 4.],
             _pad0: 0,
             color: [1., 1., 1.],
-            _pad1: 0,
+            strength: 16.0,
         };
         let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light VB"),
@@ -349,7 +365,7 @@ impl State {
 
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
         self.light_uniform.position =
-            (cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(1.0))
+            (cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(0.25))
                 * old_position)
                 .into();
         self.queue.write_buffer(
