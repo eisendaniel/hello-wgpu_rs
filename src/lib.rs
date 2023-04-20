@@ -110,7 +110,7 @@ impl State {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: surface_caps.present_modes[0],
+            present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![],
         };
@@ -163,39 +163,28 @@ impl State {
                 .await
                 .unwrap();
 
-        const _SPACE_BETWEEN: f32 = 4.0;
-        const _NUM_INSTANCES_PER_ROW: u32 = 5;
+        const _SPACE_BETWEEN: f32 = 10.0;
+        const _NUM_INSTANCES_PER_ROW: u32 = 7;
 
         let instances = (0.._NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
-                (0.._NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = _SPACE_BETWEEN * (x as f32 - _NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = _SPACE_BETWEEN * (z as f32 - _NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                (0.._NUM_INSTANCES_PER_ROW).flat_map(move |y| {
+                    (0.._NUM_INSTANCES_PER_ROW).map(move |x| {
+                        let x = (x as f32 * _SPACE_BETWEEN)
+                            - (_SPACE_BETWEEN * (_NUM_INSTANCES_PER_ROW - 1) as f32 / 2.);
+                        let y = (y as f32 * _SPACE_BETWEEN)
+                            - (_SPACE_BETWEEN * (_NUM_INSTANCES_PER_ROW - 1) as f32 / 2.);
+                        let z = (z as f32 * _SPACE_BETWEEN)
+                            - (_SPACE_BETWEEN * (_NUM_INSTANCES_PER_ROW - 1) as f32 / 2.);
 
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    };
-
-                    let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can effect scale if they're not created correctly
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-                    Instance { position, rotation }
+                        let position = cgmath::Vector3 { x, y, z };
+                        let rotation = cgmath::Quaternion::zero();
+                        Instance { position, rotation }
+                    })
                 })
             })
             .collect::<Vec<_>>();
-        // let instances = vec![Instance {
-        //     position: (0., 0., 0.).into(),
-        //     rotation: cgmath::Quaternion::zero(),
-        // }];
+
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -205,7 +194,7 @@ impl State {
 
         let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection =
-            Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+            Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 1000.0);
         let camera_controller = CameraController::new(4.0, 0.4);
 
         let mut camera_uniform = CameraUniform::new();
@@ -240,10 +229,10 @@ impl State {
         });
 
         let light_uniform = LightUniform {
-            position: [4., 4., 4.],
+            position: [4., 0., 4.],
             _pad0: 0,
             color: [1., 1., 1.],
-            strength: 16.0,
+            strength: 32.0,
         };
         let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light VB"),
